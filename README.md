@@ -11,3 +11,11 @@ If you don't provide a second port, the tool can only do a variety of writing
 tests, which you will have to manually verify.  However, these can be composed
 to run a sweep of a variety of settings, which may be helpful.
 
+
+== Hints ==
+Create a double ended virtual serial port
+$ socat -d -d -lu -x PTY,link=/tmp/serial1 PTY,link=/tmp/serial2
+
+Run this thing
+$ python -m frootloop.main
+
