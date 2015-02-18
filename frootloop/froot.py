@@ -10,18 +10,45 @@ import multiprocessing
 
 log = logging.getLogger(__name__)
 
-def watcher(port):
-    matching_bytes = 0
-    expected = port.conn.recv_bytes() # one call, one send of the whole block before test starts
-    while matching_bytes < len(expected):
-        rdata = port.read()
-        #print("rx port: %s, expecting: %s" % (rdata, expected[matching_bytes]))
-        if rdata == expected[matching_bytes]:
-            matching_bytes += 1
-        else:
-            raise ValueError("data corruption!")
-    print("All data received as expected")
 
+class WatcherProcess(multiprocessing.Process):
+    """
+    Watches the port for any data received.  Compares it to what it sees on "conn" pipe
+
+    """
+    def __init__(self, port, conn):
+        multiprocessing.Process.__init__(self)
+        self.l = logging.getLogger(__name__)
+        self.port = port
+        self.conn = conn
+        self.alive = multiprocessing.Event()
+        self.alive.set()
+
+    def run(self):
+        expected = ""
+        matching = 0
+        while self.alive.is_set():
+            if not self.conn.poll(0.5):
+                #self.l.debug("waiting for more data....")
+                continue
+            newd = self.conn.recv_bytes()
+            expected += newd
+            self.l.debug("Still watching for: %s", expected[matching:])
+            while matching < len(expected):
+                rdata = self.port.read()
+                #print("rx port: %s, expecting: %s" % (rdata, expected[matching]))
+                if rdata == expected[matching]:
+                    matching += 1
+                    # TODO - can we push a status here somehow, to get a "byets outstanding" count?
+                else:
+                    raise ValueError("data corruption")
+            print("Received %d new bytes successfully, total: %d" % (len(newd), len(expected)))
+            time.sleep(0.5)
+        self.l.debug("finitioissimsoo")
+
+    def join(self, timeout=None):
+        self.alive.clear()
+        multiprocessing.Process.join(self, timeout)
 
 
 def human(left, right=None, **kwargs):
@@ -39,11 +66,7 @@ def human(left, right=None, **kwargs):
     data = b"The quick brown fox jumped over the long brown log.\n\r"
     ll = len(data)
 
-    if right:
-        pp = multiprocessing.Process(target=watcher, args=(right,))
-        right.flushInput()
-        left.conn.send_bytes(data)
-        pp.start()
+    left.conn.send_bytes(data)
 
     start = time.time()
     for x in data:
@@ -52,9 +75,6 @@ def human(left, right=None, **kwargs):
     total = time.time() - start
     print("Wrote %d bytes in %f seconds, ~bps = %f" % (ll, total, ll/total))
     print("Rough words per minute: %f" % (len(data.split()) / total *60))
-    if right:
-        print("waiting for receiver to finish")
-        pp.join()
 
 def robot(left, right):
     """
@@ -63,11 +83,7 @@ def robot(left, right):
 
     data = "The jetset silver robot hammered rapidly on the machinery.\n\r"*10
     ll = len(data)
-    if right:
-        pp = multiprocessing.Process(target=watcher, args=(right,))
-        right.flushInput()
-        left.conn.send_bytes(data)
-        pp.start()
+    left.conn.send_bytes(data)
 
     start = time.time()
     left.write(data)
@@ -92,11 +108,7 @@ def chunky_robot(left, right, a=10, b=20):
     data = "The chunky robot thinks in short bursts, whirring madly.\n\r"*10
     ll = len(data)
     start = time.time()
-    if right:
-        pp = multiprocessing.Process(target=watcher, args=(right,))
-        right.flushInput()
-        left.conn.send_bytes(data)
-        pp.start()
+    left.conn.send_bytes(data)
 
     for dat in chunker(data, a, b):
         left.write(dat)
@@ -104,5 +116,3 @@ def chunky_robot(left, right, a=10, b=20):
     total = time.time() - start
     print("Wrote %d bytes in %f seconds, ~bps = %f" % (ll, total, ll/total))
     print("Rough words per minute: %f" % (len(data.split()) / total *60))
-    if right:
-        pp.join()

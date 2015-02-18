@@ -11,6 +11,7 @@ import serial
 
 import frootloop
 import frootloop.cli
+import frootloop.froot
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -60,10 +61,14 @@ def main(opts):
     left = make_port(opts.left, opts)
     right = make_port(opts.right, opts)
     if right:
-        left.conn, right.conn = multiprocessing.Pipe()
+        left.conn, right_conn = multiprocessing.Pipe()
+        pp = frootloop.froot.WatcherProcess(right, right_conn)
+        right.flushInput()
+        pp.start()
 
     cmdloop = frootloop.cli.Frootloop(left, right, opts)
     cmdloop.cmdloop()
+    pp.join()
 
 if __name__ == "__main__":
     opts = make_parser().parse_args()
