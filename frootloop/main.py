@@ -6,6 +6,7 @@ Serial port double ended testing.
 from __future__ import division, with_statement, generators, print_function
 import argparse
 import logging
+import multiprocessing
 import serial
 
 import frootloop
@@ -58,6 +59,8 @@ def main(opts):
 
     left = make_port(opts.left, opts)
     right = make_port(opts.right, opts)
+    if right:
+        left.conn, right.conn = multiprocessing.Pipe()
 
     cmdloop = frootloop.cli.Frootloop(left, right, opts)
     cmdloop.cmdloop()
