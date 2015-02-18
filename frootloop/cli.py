@@ -55,6 +55,26 @@ class Frootloop(cmd.Cmd):
         """
         frootloop.froot.chunky_robot(self.left, self.right)
 
+    def do_baud(self, args):
+        """
+        with no arguments, show the baudrate of both ports
+        with one argument, apply that baudrate to both ports
+        with two arguments, apply those to each.
+        :param args:
+        :return:
+        """
+
+        if args:
+            bauds = map(int, args.split())
+            self.left.setBaudrate(bauds[0])
+            if len(bauds) > 1:
+                self.right.setBaudrate(bauds[1])
+            else:
+                self.right.setBaudrate(bauds[0])
+
+        else:
+            print("Current baud is left: %d, right: %d" % (self.left.getBaudrate(), self.right.getBaudrate()))
+
     def do_EOF(self, args):
         return self.do_exit(args)
 
